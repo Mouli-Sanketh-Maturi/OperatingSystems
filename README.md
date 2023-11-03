@@ -1,9 +1,8 @@
 This project is an example implementation of building an Operating System from scratch.
 
-
 Things that work:
  - Printing a Screen.
- - Reading from Keyboard (Backspace is a bit wonky).
+ - Reading from Keyboard (even with Backspace).
  - Read a sector from disk.
  - Own Interrupt.
  - printString, readString, and readSector interrupt calls.

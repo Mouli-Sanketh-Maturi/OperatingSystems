@@ -28,8 +28,8 @@ void main() {
 void printString(char* chars) {
 	int i=0;
 	while(chars[i] != 0x0) {
-		//interrupt(0x10, 0xe*256+chars[i++], 0, 0, 0);
-		printChar(chars[i++]);
+		interrupt(0x10, 0xe*256+chars[i++], 0, 0, 0);
+		//printChar(chars[i++]);
 	}
 }
 
@@ -37,28 +37,31 @@ void printChar(char c) {
 	interrupt(0x10, 0xe*256+c, 0, 0, 0);
 }
 
-void readString(char* chars) {
-	char inp = interrupt(0x16, 0, 0, 0, 0);
-	int i=0;
-	while(inp != 0xd) {
-		if(inp == 0x08 || inp == 0x7f) {
-			if(i > 0) {
-				i--;
-				printChar(0x08);
-				printChar(' ');
-				printChar(0x08);
-				//printChar(0x08);
-				//printChar(inp);
-			}
-		} else {
-			printChar(inp);
-			chars[i++] = inp;
-			inp = interrupt(0x16, 0, 0, 0, 0);
-		}
+
+void readString(char* str) {
+    int index = 0;
+    while (1) {
+        char key = interrupt(0x16, 0, 0, 0, 0);
+        if (key == 0xd) {
+            interrupt(0x10, 0xE * 256 + 0xa, 0, 0, 0);
+            interrupt(0x10, 0xE * 256, 0, 0, 0);
+            str[index] = 0xa;
+            str[index + 1] = 0x0;
+            return;
+        } else if (key == 0x8) {
+            if (index > 0) {
+                interrupt(0x10, 0xE * 256 + 0x8, 0, 0, 0);
+                interrupt(0x10, 0xE * 256 + ' ', 0, 0, 0);
+                interrupt(0x10, 0xE * 256 + 0x8, 0, 0, 0);
+                index--;
+            }
+        } else {
+            interrupt(0x10, 0xE * 256 + key, 0, 0, 0);
+            str[index] = key;
+            index++;
 	}
-	chars[i++] = 0xa;
-	chars[i++] = 0x0;
-}	
+    }
+}   
 
 void readSector(char* chars, int sector) {
 	int AH = 2;
