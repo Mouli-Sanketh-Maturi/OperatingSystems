@@ -1,16 +1,30 @@
 // Author - Mouli Sanketh Maturi
 #define SECTOR_SIZE 512
 #define PROGRAM_LOAD_SEGMENT 0x2000
+#define MAP_SECTOR 1
+#define DIRECTORY_SECTOR 2
+#define BOOTLOADER_SECTOR 3
+#define MAX_FILE_NAME 6
+#define MAX_SECTORS 26
+#define MAX_FILE_SIZE 13312
+#define MAX_LINES 50
+#define MAX_LINE_LENGTH 80
 
 void printChar(char);
 void printString(char*);
 void readString(char*);
 void readSector(char*,int);
+void writeSector(char*,int);
+void listDirectory();
 void handleInterrupt21(int, int, int, int);
 void readFile(char*, char*, int*);
+void writeFile(char*, char*, int);
+void copyFile(char*, char*);
+int strlen(char*);
 int compareFileName(char*, char*);
 void executeProgram(char*);
 void terminate();
+void deleteFile(char*);
 
 void main() {
 	//char line [80];
@@ -25,6 +39,7 @@ void main() {
 	//printString(buffer);
 
 	makeInterrupt21();
+        //interrupt(0x21,8,"this is a test message","testmg",3);
 	interrupt(0x21,4,"shell",0,0);
 	
 	//printString("\nYour String is: ");
@@ -92,6 +107,21 @@ void readSector(char* chars, int sector) {
 	interrupt(0x13, AX, BX, CX, DX);
 }
 
+void writeSector(char* chars, int sector) {
+        int AH = 3;
+        int AL = 1;
+        int AX = AH*256+AL;
+        int BX = chars;
+        int CH = 0;
+        int CL = sector+1;
+        int CX = CH*256+CL;
+        int DH = 0;
+        int DL = 0x80;
+        int DX = DH*256+DL;
+
+        interrupt(0x13, AX, BX, CX, DX);
+}
+
 // The readFile function
 void readFile(char* filename, char* buffer, int* sectorsRead) {
     char dir[SECTOR_SIZE];  // Directory sector
@@ -122,6 +152,92 @@ void readFile(char* filename, char* buffer, int* sectorsRead) {
     }
 }
 
+void writeFile(char* buffer, char* filename, int numberOfSectors) {
+    char map[SECTOR_SIZE];
+    char directory[SECTOR_SIZE];
+    int dirEntry, sector, bufferOffset, i;
+
+    // Step 1: Load the Map and Directory into char arrays
+    readSector(map, MAP_SECTOR);
+    readSector(directory, DIRECTORY_SECTOR);
+
+    // Step 2: Find a free directory entry
+    for (dirEntry = 0; dirEntry < SECTOR_SIZE; dirEntry += 32) {
+        if (directory[dirEntry] == '\0') {
+            // Step 3: Copy the name to that directory entry
+            for (i = 0; i < MAX_FILE_NAME; i++) {
+                if (i < strlen(filename)) {
+                    directory[dirEntry + i] = filename[i];
+                } else {
+                    directory[dirEntry + i] = '\0'; // Fill remaining with '\0'
+                }
+            }
+
+            bufferOffset = 0;
+            for (i = 0; i < numberOfSectors; i++) {
+                // Step 4: Find a free sector
+                for (sector = BOOTLOADER_SECTOR; sector < SECTOR_SIZE; sector++) {
+                    if (map[sector] == 0) {
+                        // Step 5: Set that sector to 0xFF in the Map
+                        map[sector] = 0xFF;
+
+                        // Step 6: Add that sector number to the file's directory entry
+                        directory[dirEntry + 6 + i] = sector;
+
+                        // Step 7: Write 512 bytes from the buffer to that sector
+                        writeSector(buffer + bufferOffset, sector);
+                        bufferOffset += SECTOR_SIZE;
+                        break;
+                    }
+                }
+
+                if (sector == SECTOR_SIZE) {
+                    // No free sectors
+                    return;
+                }
+            }
+
+            // Step 8: Fill in the remaining bytes in the directory entry to 0
+            for (i = numberOfSectors + 6; i < MAX_SECTORS; i++) {
+                directory[dirEntry + i] = 0;
+            }
+
+            // Step 9: Write the Map and Directory back to the disk
+            writeSector(map, MAP_SECTOR);
+            writeSector(directory, DIRECTORY_SECTOR);
+
+            return;
+        }
+    }
+
+    // No free directory entries
+}
+
+void copyFile(char* filename1, char* filename2) {
+    char buffer[MAX_FILE_SIZE];  // Buffer to hold file data
+    int sectorsRead;
+
+    // Read the contents of filename1
+    interrupt(0x21, 3, filename1, buffer, &sectorsRead); // 0x21, 3 is readFile in the system
+
+    if (sectorsRead > 0) {
+        // Write the contents to filename2
+        interrupt(0x21, 8, buffer, filename2, sectorsRead); // 0x21, 8 is writeFile in the system
+    } else {
+        // Handle the case where the file couldn't be read (e.g., doesn't exist or read error)
+        printString("Error reading file\r\n");
+    }
+}
+
+int strlen(char *str) {
+    int length = 0;
+    while (*str != '\0') {
+        length++;
+        str++;
+    }
+    return length;
+}
+
 int compareFileName(char* filename, char* dirEntry) {
     int i = 0;
     for (i = 0; i < 6; i++) {
@@ -132,8 +248,36 @@ int compareFileName(char* filename, char* dirEntry) {
             return 0;  // Not a match
         }
     }
-    return 1;  // Match
+    if(i != 0) {
+        return 1;  // Match
+    }
+    return 0;
 }
+
+void listDirectory() {
+    char directory[SECTOR_SIZE];
+    int i, j;
+    int sectorCount;
+
+    // Read the directory sector
+    readSector(directory, 4); // Assuming the directory is in sector 2
+
+    // Iterate over each directory entry
+    for (i = 0; i < SECTOR_SIZE; i += 32) {
+        // Check if the file is not deleted (first character is not '\0')
+        printString("Files:\r\n");
+        if (directory[i] != '\0') {
+            // Print the file name (first 6 bytes)
+            for (j = 0; j < 6; j++) {
+                if (directory[i + j] != '\0') {
+                    printChar(directory[i + j]);
+                } else {
+                    break;
+                }
+            }
+        }
+    }
+} 
 
 void executeProgram(char* name) {
     char buffer[13312];
@@ -150,6 +294,36 @@ void executeProgram(char* name) {
         // Launch the program
         launchProgram(PROGRAM_LOAD_SEGMENT);
     }
+}
+
+void deleteFile(char* filename) {
+    char map[SECTOR_SIZE];
+    char directory[SECTOR_SIZE];
+    int dirEntry, sectorNum, i;
+
+    // Step 1: Load the Directory and Map into 512 byte character arrays
+    readSector(map, MAP_SECTOR);
+    readSector(directory, DIRECTORY_SECTOR);
+
+    // Step 2: Search through the directory for the file name
+    for (dirEntry = 0; dirEntry < SECTOR_SIZE; dirEntry += 32) {
+        if (compareFileName(directory + dirEntry, filename)) {
+            // Step 3: Set the first byte of the file name to '\0'
+            directory[dirEntry] = '\0';
+
+            // Step 4: Step through the sector numbers listed as belonging to the file
+            for (i = 6; i < 32; i++) {
+                sectorNum = directory[dirEntry + i];
+                if (sectorNum == 0) break; // No more sectors
+                map[sectorNum] = 0; // Free the sector in the map
+            }
+            break; // Exit the loop after deleting the file
+        }
+    }
+
+    // Step 5: Write the modified Directory and Map back to their sectors
+    writeSector(map, MAP_SECTOR);
+    writeSector(directory, DIRECTORY_SECTOR);
 }
 
 void terminate() {
@@ -176,6 +350,16 @@ void handleInterrupt21(int ax, int bx, int cx, int dx) {
                 executeProgram((char*)bx);
         } else if(ax == 5) {
                 terminate();
+        } else if(ax == 6) {
+                writeSector(bx, cx);
+        } else if(ax == 7) {
+                deleteFile((char*)bx);
+        } else if(ax == 8) {
+                writeFile((char*)bx, (char*)cx, dx);
+        } else if(ax == 10) {
+                listDirectory();
+        } else if(ax == 11) {
+                copyFile((char*)bx, (char*)cx);
         } else {
 		printString("AX must be one of 1,2,3");
 	}

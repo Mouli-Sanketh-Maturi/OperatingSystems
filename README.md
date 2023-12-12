@@ -7,8 +7,13 @@ This project is an example implementation of building an Operating System from s
  - Own Custom Interrupt.
  - printString, readString, and readSector interrupt calls.
  - Interactive shell.
- - Shell commands type (to output contents of a file like 'cat') and exec (to execute a program)
-
+ - Shell commands
+    - type (to output contents of a file like 'cat')
+    - exec (to execute a program)
+    - create (to create and enter contents to a file like 'touch' or 'vim')
+    - del (to delete a file)
+    - copy (to copy a file)
+    
 **Compiling**
 
 ```
