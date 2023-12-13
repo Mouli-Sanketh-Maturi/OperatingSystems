@@ -306,11 +306,10 @@ void executeProgram(char* name, int* processID) {
 	
 	readFile(name, buffer, &sectorsRead);
 	if(sectorsRead<=0) {
-		printString("cannot find program to execute\r\n");
+		printString("cannot find file to execute\r\n");
 		return;
 	}
 
-	// look for free segment
 	dataseg = setKernelDataSegment();
 	for(process=0; process<8; process++) {
 		isActive = processActive[process];
@@ -321,7 +320,6 @@ void executeProgram(char* name, int* processID) {
 	restoreDataSegment(dataseg);
 	segment = (process+2)*0x1000;
 	
-	// transfer to memory
 	for(i=0; i<13312; i++) {
 		putInMemory(segment, msgAddr, buffer[i]);
 		msgAddr += 0x1;
@@ -447,7 +445,6 @@ void terminate() {
 	dataseg = setKernelDataSegment();
 	processActive[currentProcess] = 0;
 
-	// set to active any processes waiting on terminated process
 	for(i=0; i<8; i++) {
 		if(processWaitingOn[i]==currentProcess) {
 			processWaitingOn[i] = -1;
@@ -484,6 +481,6 @@ void handleInterrupt21(int ax, int bx, int cx, int dx) {
         } else if(ax == 11) {
                 copyFile((char*)bx, (char*)cx);
         } else {
-		printString("AX must be one of 1,2,3");
+		printString("AX must be a valid value");
 	}
 }	

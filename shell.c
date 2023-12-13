@@ -38,6 +38,7 @@ void main() {
                 else {
                         syscall(4, input+5, &processID);
                 }
+                //syscall(0,processID);
                 syscall(10, processID);
         } else if(isCommand("dir\0", input)) {
                 syscall(2, output, 2);
