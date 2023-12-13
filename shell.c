@@ -18,7 +18,7 @@ void main() {
 	syscall(1,input);
         syscall(0, "\r\n");
         
-        if(isCommand("type", input)) {
+        if(isCommand("type\0", input)) {
 		syscall(3, input+5, output, &sectorsRead);
                 if(sectorsRead <= 0) {
 			syscall(0, "Cannot find the file\r\n");
@@ -26,13 +26,20 @@ void main() {
                 }
                 syscall(0, output);
                 syscall(0, "\r\n");
-        } else if(isCommand("exec", input)) {
+        } else if(isCommand("execb\0", input)) {
+                syscall(3, input+6, output, &sectorsRead);
+                if(sectorsRead<=0) syscall(0, "Cannot find the file\r\n");
+                else {
+                        syscall(4, input+6, &processID);
+                }
+        } else if(isCommand("exec\0", input)) {
                 syscall(3, input+5, output, &sectorsRead);
                 if(sectorsRead<=0) syscall(0, "Cannot find the file\r\n");
                 else {
-                        syscall(4, input+5);
+                        syscall(4, input+5, &processID);
                 }
-        } else if(isCommand("dir", input)) {
+                syscall(10, processID);
+        } else if(isCommand("dir\0", input)) {
                 syscall(2, output, 2);
 			for (i=0; i<512; i+=32) {
 			if (output[i] == '\0') continue;
@@ -43,9 +50,9 @@ void main() {
 			syscall(0, filename);
 			syscall(0, "\r\n");
 	        }
-        } else if(isCommand("del", input)) {
+        } else if(isCommand("del\0", input)) {
                 syscall(7,input+4);
-        } else if(isCommand("create", input)) {
+        } else if(isCommand("create\0", input)) {
 			// create a text file
 			txtLength = 0;
 			for(i=0; i<26; i++) { // max file length is 26 sectors
@@ -74,10 +81,10 @@ void main() {
 				txtLength += j;
 			}
 			syscall(8, output, input+7, i);
-	} else if(isCommand("kill", input)) {
+	} else if(isCommand("kill\0", input)) {
                 process = input[5] - '0';
 		syscall(9, process); 
-        } else if(isCommand("copy", input)) {
+        } else if(isCommand("copy\0", input)) {
                 extractStringAtIndex(input, 1, argument1);
                 extractStringAtIndex(input, 2, argument2);
                 syscall(11, argument1, argument2);
@@ -95,8 +102,10 @@ int isCommand(char *command, char *input) {
         command++;
         input++;
      }
-
-     return 1; // true
+     if(*command == '\0') {
+        return 1;
+     }
+     return 0; // true
 }
 
 void extractStringAtIndex(char* input, int index, char* output) {

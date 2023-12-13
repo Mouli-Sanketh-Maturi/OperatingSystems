@@ -27,6 +27,7 @@ void terminate();
 void handleTimerInterrupt(int, int);
 void deleteFile(char*);
 void killProcess(int);
+void waitOnProcess(int);
 
 // the process table
 int processActive[8];
@@ -439,6 +440,7 @@ void waitOnProcess(int process) {
 	processWaitingOn[currentProcess] = process;
 	restoreDataSegment(dataseg);
 }
+
 
 void terminate() {
 	int dataseg, i;
