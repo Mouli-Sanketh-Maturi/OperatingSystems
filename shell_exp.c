@@ -32,6 +32,13 @@ void main() {
                 else {
                         syscall(4, input+5);
                 }
+                syscall(10, processID);
+        } else if(isCommand("execb", input)) {
+                syscall(3, input+6, output, &sectorsRead);
+                if(sectorsRead<=0) syscall(0, "Cannot find the file\r\n");
+                else {
+                	syscall(4, input+6, &processID);
+                }
         } else if(isCommand("dir", input)) {
                 syscall(2, output, 2);
 			for (i=0; i<512; i+=32) {
