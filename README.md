@@ -1,3 +1,4 @@
+#Authors - Mouli Sanketh Maturi & Miray Dalgin
 This project is an example implementation of building an Operating System from scratch.
 
 **Things that work:**
@@ -10,6 +11,8 @@ This project is an example implementation of building an Operating System from s
  - Shell commands
     - type (to output contents of a file like 'cat')
     - exec (to execute a program)
+    - execb (to execute a program in background)
+    - kill (to kill a process that's running)
     - create (to create and enter contents to a file like 'touch' or 'vim')
     - del (to delete a file)
     - copy (to copy a file)
